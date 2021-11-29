@@ -1,12 +1,9 @@
-from __future__ import print_function, division
 import os
-import torch
 import pandas as pd
-from skimage import io, transform
-import numpy as np
-import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
+import random
+import torch
 
 # Ignore warnings
 import warnings
@@ -22,28 +19,21 @@ class MovementDataset(Dataset):
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """
-        self.labels = os.listdir(train)
-        print(self.labels)
+        self.labels = os.listdir(root_dir)
+        self.all_files = []
+        for i in self.labels:
+            x = os.listdir(os.path.join(root_dir, i))
+            self.all_files += [(os.path.join(root_dir, i, j), i) for j in x]
+        random.shuffle(self.all_files)
+        self.label_size = len(self.labels)
 
     def __len__(self):
-        return len(self.landmarks_frame)
+        return len(self.all_files)
 
     def __getitem__(self, idx):
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
-
-        img_name = os.path.join(self.root_dir,
-                                self.landmarks_frame.iloc[idx, 0])
-        image = io.imread(img_name)
-        landmarks = self.landmarks_frame.iloc[idx, 1:]
-        landmarks = np.array([landmarks])
-        landmarks = landmarks.astype('float').reshape(-1, 2)
-        sample = {'image': image, 'landmarks': landmarks}
-
-        if self.transform:
-            sample = self.transform(sample)
-
-        return sample
-
-
-data = MovementDataset("train")
+        with open(self.all_files[idx][0]) as file:
+            data = pd.read_csv(file)
+            file.close()
+        data = torch.tensor(data.to_numpy())
+        data = data.type(torch.FloatTensor)
+        return data, self.labels.index(self.all_files[idx][1])
